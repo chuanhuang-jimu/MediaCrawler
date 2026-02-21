@@ -281,6 +281,8 @@ class XhsCreator(Base):
     fans = Column(Text)
     interaction = Column(Text)
     tag_list = Column(Text)
+    crawl_cursor = Column(Text, default='')
+    crawl_cursor_updated_ts = Column(BigInteger, default=0)
 
 class XhsNote(Base):
     __tablename__ = 'xhs_note'

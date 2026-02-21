@@ -75,6 +75,18 @@ async def serve_frontend():
     }
 
 
+@app.get("/xhs-dashboard")
+async def serve_xhs_dashboard():
+    """Return Xiaohongshu dashboard page."""
+    dashboard_path = os.path.join(WEBUI_DIR, "xhs-dashboard.html")
+    if os.path.exists(dashboard_path):
+        return FileResponse(dashboard_path)
+    return {
+        "message": "Xiaohongshu dashboard not found",
+        "note": "Please ensure api/webui/xhs-dashboard.html exists"
+    }
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}

@@ -60,6 +60,19 @@ class XiaoHongShuCrawler(AbstractCrawler):
         self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         self.cdp_manager = None
         self.ip_proxy_pool = None  # Proxy IP pool for automatic proxy refresh
+        self._creator_comment_targets: Dict[str, str] = {}
+
+    async def _on_creator_cursor_update(self, user_id: str, cursor: str, page: int) -> None:
+        """Callback after each creator notes page is processed successfully."""
+        await xhs_store.set_creator_crawl_cursor(user_id, cursor)
+        if cursor:
+            utils.logger.info(
+                f"[XiaoHongShuCrawler] Saved creator cursor in DB user_id={user_id}, page={page}, cursor={cursor}"
+            )
+        else:
+            utils.logger.info(
+                f"[XiaoHongShuCrawler] Cleared creator cursor in DB user_id={user_id}, page={page}"
+            )
 
     async def start(self) -> None:
         playwright_proxy_format, httpx_proxy_format = None, None
@@ -206,25 +219,34 @@ class XiaoHongShuCrawler(AbstractCrawler):
 
             # Use fixed crawling interval
             crawl_interval = config.CRAWLER_MAX_SLEEP_SEC
-            # Get all note information of the creator
-            all_notes_list = await self.xhs_client.get_all_notes_by_creator(
-                user_id=user_id,
-                crawl_interval=crawl_interval,
-                callback=self.fetch_creator_notes_detail,
-                xsec_token=creator_info.xsec_token,
-                xsec_source=creator_info.xsec_source,
-            )
+            self._creator_comment_targets = {}
+            start_cursor = await xhs_store.get_creator_crawl_cursor(user_id)
+            if start_cursor:
+                utils.logger.info(
+                    f"[XiaoHongShuCrawler.get_creators_and_notes] Resume creator crawl from DB cursor user_id={user_id}, cursor={start_cursor}"
+                )
 
-            note_ids = []
-            xsec_tokens = []
-            for note_item in all_notes_list:
-                note_id = note_item.get("note_id")
-                # Filter notes again before getting comments to handle notes that were skipped in fetch_creator_notes_detail
-                if await xhs_store.XhsStoreFactory.create_store().check_content_exist(note_id):
-                    continue
-                note_ids.append(note_id)
-                xsec_tokens.append(note_item.get("xsec_token"))
+            try:
+                # Get all note information of the creator
+                await self.xhs_client.get_all_notes_by_creator(
+                    user_id=user_id,
+                    crawl_interval=crawl_interval,
+                    callback=self.fetch_creator_notes_detail,
+                    xsec_token=creator_info.xsec_token,
+                    xsec_source=creator_info.xsec_source,
+                    start_cursor=start_cursor,
+                    cursor_callback=lambda cursor, page: self._on_creator_cursor_update(user_id, cursor, page),
+                )
+            except Exception as ex:
+                utils.logger.error(
+                    f"[XiaoHongShuCrawler.get_creators_and_notes] Crawl interrupted for user_id={user_id}, checkpoint retained for resume. Error: {ex}"
+                )
+                continue
+
+            note_ids = list(self._creator_comment_targets.keys())
+            xsec_tokens = [self._creator_comment_targets[note_id] for note_id in note_ids]
             await self.batch_get_note_comments(note_ids, xsec_tokens)
+            await xhs_store.clear_creator_crawl_cursor(user_id)
 
     async def fetch_creator_notes_detail(self, note_list: List[Dict], page: int = 1):
         """Concurrently obtain the specified post list and save the data"""
@@ -260,6 +282,10 @@ class XiaoHongShuCrawler(AbstractCrawler):
             if note_detail:
                 await xhs_store.update_xhs_note(note_detail)
                 await self.get_notice_media(note_detail)
+                note_id = note_detail.get("note_id")
+                xsec_token = note_detail.get("xsec_token")
+                if note_id and xsec_token:
+                    self._creator_comment_targets[note_id] = xsec_token
 
     async def get_specified_notes(self):
         """Get the information and comments of the specified post

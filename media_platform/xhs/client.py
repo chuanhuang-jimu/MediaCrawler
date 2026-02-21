@@ -19,7 +19,7 @@
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union
 from urllib.parse import urlencode
 
 import httpx
@@ -577,9 +577,11 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
         self,
         user_id: str,
         crawl_interval: float = 1.0,
-        callback: Optional[Callable] = None,
+        callback: Optional[Callable[[List[Dict], int], Awaitable[None]]] = None,
         xsec_token: str = "",
         xsec_source: str = "pc_feed",
+        start_cursor: str = "",
+        cursor_callback: Optional[Callable[[str, int], Awaitable[None]]] = None,
     ) -> List[Dict]:
         """
         Get all posts published by specified user, this method will continuously find all post information under a user
@@ -589,14 +591,20 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
             callback: Update callback function after one pagination crawl ends
             xsec_token: Verification token
             xsec_source: Channel source
+            start_cursor: Resume cursor for creator note pagination
+            cursor_callback: Callback after one creator page is processed successfully
 
         Returns:
 
         """
         result = []
         notes_has_more = True
-        notes_cursor = ""
+        notes_cursor = start_cursor or ""
         page = 1
+        if notes_cursor:
+            utils.logger.info(
+                f"[XiaoHongShuClient.get_all_notes_by_creator] Resume from cursor for user_id:{user_id}, cursor:{notes_cursor}"
+            )
         while notes_has_more and len(result) < config.CRAWLER_MAX_NOTES_COUNT:
             notes_res = await self.get_notes_by_creator(
                 user_id, notes_cursor, xsec_token=xsec_token, xsec_source=xsec_source
@@ -629,6 +637,8 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
                 await callback(notes_to_add, page)
 
             result.extend(notes_to_add)
+            if cursor_callback:
+                await cursor_callback(notes_cursor, page)
             page += 1
             await asyncio.sleep(crawl_interval)
 

@@ -49,6 +49,26 @@ class XhsStoreFactory:
         return store_class()
 
 
+async def get_creator_crawl_cursor(user_id: str) -> str:
+    store = XhsStoreFactory.create_store()
+    getter = getattr(store, "get_creator_crawl_cursor", None)
+    if not callable(getter):
+        return ""
+    return await getter(user_id)
+
+
+async def set_creator_crawl_cursor(user_id: str, cursor: str) -> None:
+    store = XhsStoreFactory.create_store()
+    setter = getattr(store, "set_creator_crawl_cursor", None)
+    if not callable(setter):
+        return
+    await setter(user_id, cursor)
+
+
+async def clear_creator_crawl_cursor(user_id: str) -> None:
+    await set_creator_crawl_cursor(user_id, "")
+
+
 def get_video_url_arr(note_item: Dict) -> List:
     """
     Get video url array

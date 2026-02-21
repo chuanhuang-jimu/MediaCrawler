@@ -20,11 +20,12 @@
 # @Time    : 2025/9/5 19:34
 # @Desc    : Xiaohongshu storage implementation class
 import json
+import asyncio
 import os
 from datetime import datetime
 from typing import List, Dict, Any
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -102,8 +103,56 @@ class XhsJsonStoreImplement(AbstractStore):
 
 
 class XhsDbStoreImplement(AbstractStore):
+    _creator_cursor_schema_checked = False
+    _creator_cursor_schema_lock = asyncio.Lock()
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    async def _ensure_creator_cursor_schema(self, session: AsyncSession):
+        """Ensure creator cursor columns exist for breakpoint resume."""
+        cls = type(self)
+        if cls._creator_cursor_schema_checked:
+            return
+
+        async with cls._creator_cursor_schema_lock:
+            if cls._creator_cursor_schema_checked:
+                return
+
+            dialect = session.bind.dialect.name if session.bind else ""
+
+            try:
+                if dialect == "sqlite":
+                    result = await session.execute(text("PRAGMA table_info(xhs_creator)"))
+                    cols = {row[1] for row in result.fetchall()}
+                    if "crawl_cursor" not in cols:
+                        await session.execute(text("ALTER TABLE xhs_creator ADD COLUMN crawl_cursor TEXT"))
+                    if "crawl_cursor_updated_ts" not in cols:
+                        await session.execute(text("ALTER TABLE xhs_creator ADD COLUMN crawl_cursor_updated_ts BIGINT"))
+                elif dialect == "postgresql":
+                    await session.execute(text("ALTER TABLE xhs_creator ADD COLUMN IF NOT EXISTS crawl_cursor TEXT"))
+                    await session.execute(text("ALTER TABLE xhs_creator ADD COLUMN IF NOT EXISTS crawl_cursor_updated_ts BIGINT"))
+                elif dialect == "mysql":
+                    has_cursor = await session.execute(
+                        text("SHOW COLUMNS FROM xhs_creator LIKE :column_name"),
+                        {"column_name": "crawl_cursor"},
+                    )
+                    if has_cursor.first() is None:
+                        await session.execute(text("ALTER TABLE xhs_creator ADD COLUMN crawl_cursor TEXT"))
+
+                    has_cursor_ts = await session.execute(
+                        text("SHOW COLUMNS FROM xhs_creator LIKE :column_name"),
+                        {"column_name": "crawl_cursor_updated_ts"},
+                    )
+                    if has_cursor_ts.first() is None:
+                        await session.execute(text("ALTER TABLE xhs_creator ADD COLUMN crawl_cursor_updated_ts BIGINT"))
+            except Exception as ex:
+                utils.logger.warning(
+                    f"[XhsDbStoreImplement] Ensure creator cursor schema failed (dialect={dialect}): {ex}"
+                )
+                return
+
+            cls._creator_cursor_schema_checked = True
 
     async def store_content(self, content_item: Dict):
         note_id = content_item.get("note_id")
@@ -226,6 +275,7 @@ class XhsDbStoreImplement(AbstractStore):
         if not user_id:
             return
         async with get_session() as session:
+            await self._ensure_creator_cursor_schema(session)
             if await self.creator_is_exist(session, user_id):
                 await self.update_creator(session, creator_item)
             else:
@@ -246,7 +296,9 @@ class XhsDbStoreImplement(AbstractStore):
             follows=str(creator_item.get("follows")),
             fans=str(creator_item.get("fans")),
             interaction=str(creator_item.get("interaction")),
-            tag_list=json.dumps(creator_item.get("tag_list"), ensure_ascii=False)
+            tag_list=json.dumps(creator_item.get("tag_list"), ensure_ascii=False),
+            crawl_cursor=creator_item.get("crawl_cursor", ""),
+            crawl_cursor_updated_ts=creator_item.get("crawl_cursor_updated_ts", 0),
         )
         session.add(creator)
 
@@ -261,15 +313,63 @@ class XhsDbStoreImplement(AbstractStore):
             "follows": str(creator_item.get("follows")),
             "fans": str(creator_item.get("fans")),
             "interaction": str(creator_item.get("interaction")),
-            "tag_list": json.dumps(creator_item.get("tag_list"), ensure_ascii=False)
+            "tag_list": json.dumps(creator_item.get("tag_list"), ensure_ascii=False),
         }
+        if "crawl_cursor" in creator_item:
+            update_data["crawl_cursor"] = creator_item.get("crawl_cursor", "")
+        if "crawl_cursor_updated_ts" in creator_item:
+            update_data["crawl_cursor_updated_ts"] = creator_item.get("crawl_cursor_updated_ts", 0)
         stmt = update(XhsCreator).where(XhsCreator.user_id == user_id).values(**update_data)
         await session.execute(stmt)
 
     async def creator_is_exist(self, session: AsyncSession, user_id: str) -> bool:
-        stmt = select(XhsCreator).where(XhsCreator.user_id == user_id)
+        stmt = select(XhsCreator.id).where(XhsCreator.user_id == user_id)
         result = await session.execute(stmt)
         return result.first() is not None
+
+    async def get_creator_crawl_cursor(self, user_id: str) -> str:
+        if not user_id:
+            return ""
+        async with get_session() as session:
+            await self._ensure_creator_cursor_schema(session)
+            stmt = (
+                select(XhsCreator.crawl_cursor)
+                .where(XhsCreator.user_id == user_id)
+                .order_by(XhsCreator.id.desc())
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            crawl_cursor = result.scalar_one_or_none()
+            return crawl_cursor or ""
+
+    async def set_creator_crawl_cursor(self, user_id: str, cursor: str) -> None:
+        if not user_id:
+            return
+
+        now_ts = int(get_current_timestamp())
+        async with get_session() as session:
+            await self._ensure_creator_cursor_schema(session)
+            if await self.creator_is_exist(session, user_id):
+                stmt = (
+                    update(XhsCreator)
+                    .where(XhsCreator.user_id == user_id)
+                    .values(
+                        last_modify_ts=now_ts,
+                        crawl_cursor=cursor or "",
+                        crawl_cursor_updated_ts=now_ts,
+                    )
+                )
+                await session.execute(stmt)
+            else:
+                session.add(
+                    XhsCreator(
+                        user_id=user_id,
+                        add_ts=now_ts,
+                        last_modify_ts=now_ts,
+                        crawl_cursor=cursor or "",
+                        crawl_cursor_updated_ts=now_ts,
+                    )
+                )
 
     async def get_all_content(self) -> List[Dict]:
         async with get_session() as session:

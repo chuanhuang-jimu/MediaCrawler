@@ -18,16 +18,35 @@
 
 import os
 import json
+import math
+import re
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
+import config
+
+try:
+    from sqlalchemy import func, or_, select
+    from sqlalchemy.exc import SQLAlchemyError
+    from database.db_session import get_session
+    from database.models import XhsCreator, XhsNote, XhsNoteComment
+    SQLALCHEMY_AVAILABLE = True
+except ModuleNotFoundError:
+    func = or_ = select = None
+    SQLAlchemyError = Exception
+    get_session = None
+    XhsCreator = XhsNote = XhsNoteComment = None
+    SQLALCHEMY_AVAILABLE = False
+
 router = APIRouter(prefix="/data", tags=["data"])
 
 # Data directory
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
+
+DB_DISABLED_OPTIONS = {"json", "csv", "excel"}
 
 
 def get_file_info(file_path: Path) -> dict:
@@ -56,6 +75,138 @@ def get_file_info(file_path: Path) -> dict:
         "record_count": record_count,
         "type": file_path.suffix[1:] if file_path.suffix else "unknown"
     }
+
+
+def _ensure_db_available():
+    if not SQLALCHEMY_AVAILABLE:
+        raise HTTPException(
+            status_code=500,
+            detail="SQLAlchemy is not installed in current environment, cannot query XHS dashboard data.",
+        )
+
+    if config.SAVE_DATA_OPTION in DB_DISABLED_OPTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Current SAVE_DATA_OPTION is '{config.SAVE_DATA_OPTION}', "
+                "please switch to sqlite/db/postgres to query XHS dashboard data."
+            ),
+        )
+
+
+def _normalize_page(page: int, page_size: int, max_page_size: int = 100) -> tuple[int, int, int]:
+    safe_page = max(page, 1)
+    safe_page_size = max(min(page_size, max_page_size), 1)
+    offset = (safe_page - 1) * safe_page_size
+    return safe_page, safe_page_size, offset
+
+
+def _parse_count(value) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return int(value)
+
+    text = str(value).strip().replace(",", "")
+    if not text:
+        return 0
+
+    multiplier = 1
+    if text.endswith("万"):
+        multiplier = 10000
+        text = text[:-1]
+    elif text.endswith("亿"):
+        multiplier = 100000000
+        text = text[:-1]
+
+    try:
+        return int(float(text) * multiplier)
+    except ValueError:
+        digits = re.findall(r"\d+", text)
+        return int("".join(digits)) if digits else 0
+
+
+def _creator_to_dict(item: XhsCreator) -> dict:
+    return {
+        "id": item.id,
+        "user_id": item.user_id,
+        "nickname": item.nickname,
+        "avatar": item.avatar,
+        "ip_location": item.ip_location,
+        "desc": item.desc,
+        "gender": item.gender,
+        "follows": item.follows,
+        "fans": item.fans,
+        "interaction": item.interaction,
+        "tag_list": item.tag_list,
+        "add_ts": item.add_ts,
+        "last_modify_ts": item.last_modify_ts,
+    }
+
+
+def _note_to_dict(item: XhsNote) -> dict:
+    comment_count_num = _parse_count(item.comment_count)
+    return {
+        "id": item.id,
+        "note_id": item.note_id,
+        "user_id": item.user_id,
+        "nickname": item.nickname,
+        "avatar": item.avatar,
+        "title": item.title,
+        "desc": item.desc,
+        "type": item.type,
+        "liked_count": item.liked_count,
+        "collected_count": item.collected_count,
+        "comment_count": item.comment_count,
+        "comment_count_num": comment_count_num,
+        "share_count": item.share_count,
+        "note_url": item.note_url,
+        "ip_location": item.ip_location,
+        "source_keyword": item.source_keyword,
+        "tag_list": item.tag_list,
+        "time": item.time,
+        "last_update_time": item.last_update_time,
+        "add_ts": item.add_ts,
+        "last_modify_ts": item.last_modify_ts,
+        "has_comments": comment_count_num > 0,
+    }
+
+
+def _comment_to_dict(item: XhsNoteComment) -> dict:
+    return {
+        "id": item.id,
+        "comment_id": item.comment_id,
+        "parent_comment_id": item.parent_comment_id,
+        "note_id": item.note_id,
+        "user_id": item.user_id,
+        "nickname": item.nickname,
+        "avatar": item.avatar,
+        "ip_location": item.ip_location,
+        "content": item.content,
+        "sub_comment_count": item.sub_comment_count or 0,
+        "like_count": item.like_count,
+        "create_time": item.create_time,
+        "add_ts": item.add_ts,
+        "last_modify_ts": item.last_modify_ts,
+        "sub_comments": [],
+    }
+
+
+def _build_comment_tree(comments: list[dict]) -> tuple[list[dict], int]:
+    comment_map = {item["comment_id"]: item for item in comments if item.get("comment_id")}
+    roots: list[dict] = []
+    child_count = 0
+
+    for item in comments:
+        parent_comment_id = (item.get("parent_comment_id") or "").strip()
+        comment_id = item.get("comment_id")
+        if parent_comment_id and parent_comment_id != comment_id and parent_comment_id in comment_map:
+            comment_map[parent_comment_id]["sub_comments"].append(item)
+            child_count += 1
+        else:
+            roots.append(item)
+
+    return roots, child_count
 
 
 @router.get("/files")
@@ -228,3 +379,209 @@ async def get_data_stats():
                 continue
 
     return stats
+
+
+@router.get("/xhs/overview")
+async def get_xhs_overview():
+    """Get Xiaohongshu data overview from database."""
+    _ensure_db_available()
+
+    try:
+        async with get_session() as session:
+            if session is None:
+                raise HTTPException(status_code=500, detail="Database session is not available")
+
+            creator_total = (
+                await session.execute(select(func.count()).select_from(XhsCreator))
+            ).scalar_one()
+            note_total = (
+                await session.execute(select(func.count()).select_from(XhsNote))
+            ).scalar_one()
+            comment_total = (
+                await session.execute(select(func.count()).select_from(XhsNoteComment))
+            ).scalar_one()
+            notes_with_comments = (
+                await session.execute(select(func.count(func.distinct(XhsNoteComment.note_id))))
+            ).scalar_one()
+
+            top_creator_rows = (
+                await session.execute(
+                    select(
+                        XhsNote.user_id,
+                        XhsNote.nickname,
+                        func.count(XhsNote.id).label("note_count"),
+                    )
+                    .group_by(XhsNote.user_id, XhsNote.nickname)
+                    .order_by(func.count(XhsNote.id).desc())
+                    .limit(8)
+                )
+            ).all()
+
+            return {
+                "creator_total": creator_total,
+                "note_total": note_total,
+                "comment_total": comment_total,
+                "notes_with_comments": notes_with_comments,
+                "top_creators_by_note_count": [
+                    {
+                        "user_id": user_id,
+                        "nickname": nickname,
+                        "note_count": note_count,
+                    }
+                    for user_id, nickname, note_count in top_creator_rows
+                ],
+            }
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500, detail="Failed to query Xiaohongshu overview")
+
+
+@router.get("/xhs/creators")
+async def get_xhs_creators(page: int = 1, page_size: int = 20, keyword: str = ""):
+    """Get Xiaohongshu creator list."""
+    _ensure_db_available()
+    page, page_size, offset = _normalize_page(page, page_size)
+    keyword = keyword.strip()
+
+    try:
+        async with get_session() as session:
+            if session is None:
+                raise HTTPException(status_code=500, detail="Database session is not available")
+
+            conditions = []
+            if keyword:
+                like_keyword = f"%{keyword}%"
+                conditions.append(
+                    or_(
+                        XhsCreator.user_id.like(like_keyword),
+                        XhsCreator.nickname.like(like_keyword),
+                        XhsCreator.desc.like(like_keyword),
+                        XhsCreator.tag_list.like(like_keyword),
+                    )
+                )
+
+            query_stmt = select(XhsCreator)
+            count_stmt = select(func.count()).select_from(XhsCreator)
+            if conditions:
+                query_stmt = query_stmt.where(*conditions)
+                count_stmt = count_stmt.where(*conditions)
+
+            query_stmt = query_stmt.order_by(
+                XhsCreator.last_modify_ts.desc(),
+                XhsCreator.add_ts.desc(),
+                XhsCreator.id.desc(),
+            ).offset(offset).limit(page_size)
+
+            rows = (await session.execute(query_stmt)).scalars().all()
+            total = (await session.execute(count_stmt)).scalar_one()
+
+            return {
+                "items": [_creator_to_dict(row) for row in rows],
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total,
+                    "total_pages": math.ceil(total / page_size) if total else 0,
+                },
+            }
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500, detail="Failed to query Xiaohongshu creators")
+
+
+@router.get("/xhs/notes")
+async def get_xhs_notes(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: str = "",
+    creator_user_id: str = "",
+):
+    """Get Xiaohongshu note list."""
+    _ensure_db_available()
+    page, page_size, offset = _normalize_page(page, page_size)
+    keyword = keyword.strip()
+    creator_user_id = creator_user_id.strip()
+
+    try:
+        async with get_session() as session:
+            if session is None:
+                raise HTTPException(status_code=500, detail="Database session is not available")
+
+            conditions = []
+            if keyword:
+                like_keyword = f"%{keyword}%"
+                conditions.append(
+                    or_(
+                        XhsNote.note_id.like(like_keyword),
+                        XhsNote.title.like(like_keyword),
+                        XhsNote.desc.like(like_keyword),
+                        XhsNote.nickname.like(like_keyword),
+                        XhsNote.source_keyword.like(like_keyword),
+                    )
+                )
+            if creator_user_id:
+                conditions.append(XhsNote.user_id == creator_user_id)
+
+            query_stmt = select(XhsNote)
+            count_stmt = select(func.count()).select_from(XhsNote)
+            if conditions:
+                query_stmt = query_stmt.where(*conditions)
+                count_stmt = count_stmt.where(*conditions)
+
+            query_stmt = query_stmt.order_by(
+                XhsNote.time.desc(),
+                XhsNote.last_modify_ts.desc(),
+                XhsNote.id.desc(),
+            ).offset(offset).limit(page_size)
+
+            rows = (await session.execute(query_stmt)).scalars().all()
+            total = (await session.execute(count_stmt)).scalar_one()
+
+            return {
+                "items": [_note_to_dict(row) for row in rows],
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total,
+                    "total_pages": math.ceil(total / page_size) if total else 0,
+                },
+            }
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500, detail="Failed to query Xiaohongshu notes")
+
+
+@router.get("/xhs/notes/{note_id}/comments")
+async def get_xhs_note_comments(note_id: str, keyword: str = ""):
+    """Get Xiaohongshu note comments and attach child comments under root comments."""
+    _ensure_db_available()
+    note_id = note_id.strip()
+    keyword = keyword.strip()
+
+    if not note_id:
+        raise HTTPException(status_code=400, detail="note_id is required")
+
+    try:
+        async with get_session() as session:
+            if session is None:
+                raise HTTPException(status_code=500, detail="Database session is not available")
+
+            query_stmt = select(XhsNoteComment).where(XhsNoteComment.note_id == note_id)
+            if keyword:
+                query_stmt = query_stmt.where(XhsNoteComment.content.like(f"%{keyword}%"))
+
+            query_stmt = query_stmt.order_by(
+                XhsNoteComment.create_time.desc(),
+                XhsNoteComment.id.desc(),
+            )
+
+            rows = (await session.execute(query_stmt)).scalars().all()
+            comments = [_comment_to_dict(row) for row in rows]
+            root_comments, child_count = _build_comment_tree(comments)
+
+            return {
+                "note_id": note_id,
+                "total_comments": len(comments),
+                "root_comment_count": len(root_comments),
+                "child_comment_count": child_count,
+                "root_comments": root_comments,
+            }
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500, detail="Failed to query Xiaohongshu comments")
