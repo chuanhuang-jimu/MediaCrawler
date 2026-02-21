@@ -107,6 +107,13 @@ class AbstractStore(ABC):
         """
         return False
 
+    async def get_note_author_info(self, note_id: str) -> Dict[str, str]:
+        """
+        Get note author info by note_id.
+        Returns a dict containing user_id and ip_location.
+        """
+        return {"user_id": "", "ip_location": ""}
+
 
 class AbstractStoreImage(ABC):
     # TODO: support all platform

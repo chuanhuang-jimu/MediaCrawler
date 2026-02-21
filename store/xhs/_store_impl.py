@@ -268,6 +268,22 @@ class XhsDbStoreImplement(AbstractStore):
         async with get_session() as session:
             return await self.content_is_exist(session, content_id)
 
+    async def get_note_author_info(self, note_id: str) -> Dict[str, str]:
+        if not note_id:
+            return {"user_id": "", "ip_location": ""}
+        async with get_session() as session:
+            stmt = (
+                select(XhsNote.user_id, XhsNote.ip_location)
+                .where(XhsNote.note_id == note_id)
+                .order_by(XhsNote.id.desc())
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            row = result.first()
+            if row:
+                return {"user_id": str(row[0] or ""), "ip_location": str(row[1] or "")}
+            return {"user_id": "", "ip_location": ""}
+
     async def store_comment(self, comment_item: Dict):
         if not comment_item:
             return

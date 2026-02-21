@@ -392,6 +392,7 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
         crawl_interval: float = 1.0,
         callback: Optional[Callable] = None,
         max_count: int = 10,
+        note_author_ip_location: str = "",
     ) -> List[Dict]:
         """
         Get all first-level comments under specified note, this method will continuously find all comment information under a post
@@ -400,14 +401,16 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
             xsec_token: Verification token
             crawl_interval: Crawl delay per note (seconds)
             callback: Callback after one note crawl ends
-            max_count: Maximum number of comments to crawl per note
+            max_count: Maximum number of first-level comments to attempt per note
+            note_author_ip_location: Note author ip_location loaded from xhs_note table
         Returns:
 
         """
         result = []
         comments_has_more = True
         comments_cursor = ""
-        while comments_has_more and len(result) < max_count:
+        attempted_top_comments = 0
+        while comments_has_more and attempted_top_comments < max_count:
             comments_res = await self.get_note_comments(
                 note_id=note_id, xsec_token=xsec_token, cursor=comments_cursor
             )
@@ -419,35 +422,74 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
                 )
                 break
             comments = comments_res["comments"]
-            if len(result) + len(comments) > max_count:
-                comments = comments[: max_count - len(result)]
-            if callback:
-                await callback(note_id, comments)
+            remaining = max_count - attempted_top_comments
+            if len(comments) > remaining:
+                comments = comments[:remaining]
+
+            if not comments:
+                break
+
+            attempted_top_comments += len(comments)
+
+            filtered_comments = self._filter_author_related_comments(
+                comments=comments,
+                note_author_ip_location=note_author_ip_location,
+            )
+            if callback and filtered_comments:
+                await callback(note_id, filtered_comments)
             await asyncio.sleep(crawl_interval)
-            result.extend(comments)
+            result.extend(filtered_comments)
             sub_comments = await self.get_comments_all_sub_comments(
+                note_id=note_id,
                 comments=comments,
                 xsec_token=xsec_token,
                 crawl_interval=crawl_interval,
                 callback=callback,
+                note_author_ip_location=note_author_ip_location,
             )
             result.extend(sub_comments)
         return result
 
+    @staticmethod
+    def _is_author_related_comment(comment: Dict, note_author_ip_location: str = "") -> bool:
+        # Check if it's the author's own comment using show_tags
+        show_tags = comment.get("show_tags") or []
+        is_author = any(tag.get("tag") == "is_author" for tag in show_tags)
+        
+        # Check engagement and IP consistency
+        like_count = int(comment.get("like_count") or 0)
+        ip_location = comment.get("ip_location") or ""
+        
+        # Criteria:
+        # 1. Author's own comment
+        # 2. Likes > 100 AND IP matches author's IP
+        is_high_engagement_local = like_count > 100 and ip_location == note_author_ip_location and bool(note_author_ip_location)
+        
+        return is_author or is_high_engagement_local
+
+    def _filter_author_related_comments(self, comments: List[Dict], note_author_ip_location: str = "") -> List[Dict]:
+        if not config.ENABLE_GET_AUTHOR_RELATED_COMMENTS:
+            return comments
+        return [comment for comment in comments if self._is_author_related_comment(comment, note_author_ip_location)]
+
     async def get_comments_all_sub_comments(
         self,
+        note_id: str,
         comments: List[Dict],
         xsec_token: str,
         crawl_interval: float = 1.0,
         callback: Optional[Callable] = None,
+        note_author_ip_location: str = "",
     ) -> List[Dict]:
         """
-        Get all second-level comments under specified first-level comments, this method will continuously find all second-level comment information under first-level comments
+        Get one-page second-level comments under specified first-level comments
         Args:
+            note_id: Note ID
             comments: Comment list
             xsec_token: Verification token
             crawl_interval: Crawl delay per comment (seconds)
             callback: Callback after one comment crawl ends
+            note_author_ip_location: Note author ip_location loaded from xhs_note table
 
         Returns:
 
@@ -461,55 +503,68 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
         result = []
         for comment in comments:
             try:
-                note_id = comment.get("note_id")
-                sub_comments = comment.get("sub_comments")
-                if sub_comments and callback:
-                    await callback(note_id, sub_comments)
+                current_note_id = note_id or comment.get("note_id") or ""
+                if not current_note_id:
+                    continue
+
+                sub_comments = comment.get("sub_comments") or []
+                filtered_sub_comments = self._filter_author_related_comments(
+                    comments=sub_comments,
+                    note_author_user_id=note_author_user_id,
+                )
+                if filtered_sub_comments and callback:
+                    await callback(current_note_id, filtered_sub_comments)
+                result.extend(filtered_sub_comments)
 
                 sub_comment_has_more = comment.get("sub_comment_has_more")
                 if not sub_comment_has_more:
                     continue
 
+                # By default only fetch one page of sub-comments.
+                # If first page already exists in `sub_comments`, do not paginate further.
+                if sub_comments:
+                    continue
+
                 root_comment_id = comment.get("id")
                 sub_comment_cursor = comment.get("sub_comment_cursor")
 
-                while sub_comment_has_more:
-                    try:
-                        comments_res = await self.get_note_sub_comments(
-                            note_id=note_id,
-                            root_comment_id=root_comment_id,
-                            xsec_token=xsec_token,
-                            num=10,
-                            cursor=sub_comment_cursor,
-                        )
+                try:
+                    comments_res = await self.get_note_sub_comments(
+                        note_id=current_note_id,
+                        root_comment_id=root_comment_id,
+                        xsec_token=xsec_token,
+                        num=10,
+                        cursor=sub_comment_cursor,
+                    )
 
-                        if comments_res is None:
-                            utils.logger.info(
-                                f"[XiaoHongShuClient.get_comments_all_sub_comments] No response found for note_id: {note_id}"
-                            )
-                            break
-                        sub_comment_has_more = comments_res.get("has_more", False)
-                        sub_comment_cursor = comments_res.get("cursor", "")
-                        if "comments" not in comments_res:
-                            utils.logger.info(
-                                f"[XiaoHongShuClient.get_comments_all_sub_comments] No 'comments' key found in response: {comments_res}"
-                            )
-                            break
-                        comments = comments_res["comments"]
-                        if callback:
-                            await callback(note_id, comments)
-                        await asyncio.sleep(crawl_interval)
-                        result.extend(comments)
-                    except DataFetchError as e:
-                        utils.logger.warning(
-                            f"[XiaoHongShuClient.get_comments_all_sub_comments] Failed to get sub-comments for note_id: {note_id}, root_comment_id: {root_comment_id}, error: {e}. Skipping this comment's sub-comments."
+                    if comments_res is None:
+                        utils.logger.info(
+                            f"[XiaoHongShuClient.get_comments_all_sub_comments] No response found for note_id: {current_note_id}"
                         )
-                        break  # Break out of the sub-comment acquisition loop of the current comment and continue processing the next comment
-                    except Exception as e:
-                        utils.logger.error(
-                            f"[XiaoHongShuClient.get_comments_all_sub_comments] Unexpected error when getting sub-comments for note_id: {note_id}, root_comment_id: {root_comment_id}, error: {e}"
+                        continue
+                    if "comments" not in comments_res:
+                        utils.logger.info(
+                            f"[XiaoHongShuClient.get_comments_all_sub_comments] No 'comments' key found in response: {comments_res}"
                         )
-                        break
+                        continue
+                    sub_comment_page = comments_res["comments"]
+                    filtered_page_comments = self._filter_author_related_comments(
+                        comments=sub_comment_page,
+                        note_author_user_id=note_author_user_id,
+                        note_author_ip_location=note_author_ip_location,
+                    )
+                    if filtered_page_comments and callback:
+                        await callback(current_note_id, filtered_page_comments)
+                    await asyncio.sleep(crawl_interval)
+                    result.extend(filtered_page_comments)
+                except DataFetchError as e:
+                    utils.logger.warning(
+                        f"[XiaoHongShuClient.get_comments_all_sub_comments] Failed to get sub-comments for note_id: {current_note_id}, root_comment_id: {root_comment_id}, error: {e}. Skipping this comment's sub-comments."
+                    )
+                except Exception as e:
+                    utils.logger.error(
+                        f"[XiaoHongShuClient.get_comments_all_sub_comments] Unexpected error when getting sub-comments for note_id: {current_note_id}, root_comment_id: {root_comment_id}, error: {e}"
+                    )
             except Exception as e:
                 utils.logger.error(
                     f"[XiaoHongShuClient.get_comments_all_sub_comments] Error processing comment: {comment.get('id', 'unknown')}, error: {e}. Continuing with next comment."

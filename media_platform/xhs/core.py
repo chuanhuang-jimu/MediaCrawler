@@ -423,6 +423,10 @@ class XiaoHongShuCrawler(AbstractCrawler):
             utils.logger.info(f"[XiaoHongShuCrawler.get_comments] Begin get note id comments {note_id}")
             # Use fixed crawling interval
             crawl_interval = config.CRAWLER_MAX_SLEEP_SEC
+            note_author_ip_location = ""
+            if config.ENABLE_GET_AUTHOR_RELATED_COMMENTS:
+                author_info = await xhs_store.get_note_author_info(note_id)
+                note_author_ip_location = author_info.get("ip_location", "")
             try:
                 await xhs_store.set_note_comment_crawled(note_id, False)
                 await self.xhs_client.get_note_all_comments(
@@ -431,6 +435,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
                     crawl_interval=crawl_interval,
                     callback=xhs_store.batch_update_xhs_note_comments,
                     max_count=config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
+                    note_author_ip_location=note_author_ip_location,
                 )
                 await xhs_store.set_note_comment_crawled(note_id, True)
 

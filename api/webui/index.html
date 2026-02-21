@@ -13,5 +13,122 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        const DASHBOARD_HREF = "/xhs-dashboard";
+
+        function createDashboardEntry(className) {
+          const link = document.createElement("a");
+          link.href = DASHBOARD_HREF;
+          link.innerHTML = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 8px;border-radius:999px;background:#06222a;color:#67e8f9;font-size:12px;font-weight:800;letter-spacing:.8px">XHS</span><span style="white-space:nowrap">Dashboard</span>';
+          link.setAttribute("data-xhs-dashboard-entry", "1");
+          link.style.textDecoration = "none";
+          link.style.display = "inline-flex";
+          link.style.alignItems = "center";
+          link.style.justifyContent = "center";
+          link.style.gap = "8px";
+          link.style.padding = "11px 16px";
+          link.style.borderRadius = "12px";
+          link.style.fontWeight = "800";
+          link.style.fontSize = "14px";
+          link.style.letterSpacing = ".2px";
+          link.style.border = "1px solid #22d3ee";
+          link.style.background = "linear-gradient(135deg,#22d3ee,#0ea5e9)";
+          link.style.color = "#03151d";
+          link.style.boxShadow = "0 0 0 2px rgba(6,182,212,.35), 0 10px 20px rgba(2,132,199,.4)";
+          link.style.transition = "transform .15s ease, box-shadow .2s ease, filter .2s ease";
+          link.addEventListener("mouseenter", function () {
+            link.style.transform = "translateY(-1px)";
+            link.style.filter = "brightness(1.06)";
+            link.style.boxShadow = "0 0 0 2px rgba(6,182,212,.45), 0 14px 24px rgba(2,132,199,.48)";
+          });
+          link.addEventListener("mouseleave", function () {
+            link.style.transform = "";
+            link.style.filter = "";
+            link.style.boxShadow = "0 0 0 2px rgba(6,182,212,.35), 0 10px 20px rgba(2,132,199,.4)";
+          });
+          if (className) link.className = className;
+          return link;
+        }
+
+        function patchFooter() {
+          const footer = Array.from(document.querySelectorAll("footer")).find((el) => {
+            const text = (el.textContent || "").toLowerCase();
+            return (
+              text.includes("程序员阿江-relakkes") ||
+              text.includes("relakkes (阿江)") ||
+              text.includes("open source is hard") ||
+              text.includes("开源不易")
+            );
+          });
+          if (!footer || footer.getAttribute("data-xhs-patched") === "1") return;
+
+          footer.setAttribute("data-xhs-patched", "1");
+          footer.innerHTML = "";
+
+          const wrap = document.createElement("div");
+          wrap.style.height = "100%";
+          wrap.style.display = "flex";
+          wrap.style.alignItems = "center";
+          wrap.style.justifyContent = "center";
+          wrap.style.padding = "0 16px";
+          wrap.appendChild(createDashboardEntry("font-mono"));
+          footer.appendChild(wrap);
+        }
+
+        function injectEntryNearDataButton() {
+          if (document.querySelector('[data-xhs-dashboard-entry="1"]')) return;
+          const dataBtn = Array.from(document.querySelectorAll("button,a")).find((el) => {
+            const text = (el.textContent || "").toLowerCase();
+            return text.includes("数据管理") || text.includes("payload_matrix") || text.includes("data_explorer");
+          });
+          if (!dataBtn || !dataBtn.parentElement) return;
+          const entry = createDashboardEntry(dataBtn.className || "");
+          dataBtn.parentElement.appendChild(entry);
+        }
+
+        function removeBrandStarIcon() {
+          document.querySelectorAll('svg[class*="star"], svg[class*="Star"], [data-lucide="star"]').forEach((svg) => {
+            const rowText = (svg.closest("header, div, section")?.textContent || "").toLowerCase();
+            if (rowText.includes("mediacrawler")) {
+              svg.remove();
+            }
+          });
+
+          Array.from(document.querySelectorAll("span,div,h1,h2,h3")).forEach((node) => {
+            if ((node.textContent || "").trim().toLowerCase() !== "mediacrawler") return;
+            const prev = node.previousElementSibling;
+            const next = node.nextElementSibling;
+            [prev, next].forEach((sibling) => {
+              if (!sibling) return;
+              if (sibling.tagName === "svg") sibling.remove();
+              const svg = sibling.querySelector && sibling.querySelector("svg");
+              if (svg) svg.remove();
+            });
+          });
+        }
+
+        function patch() {
+          patchFooter();
+          injectEntryNearDataButton();
+          removeBrandStarIcon();
+        }
+
+        let ticking = false;
+        function schedulePatch() {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => {
+            ticking = false;
+            patch();
+          });
+        }
+
+        window.addEventListener("load", patch);
+        const observer = new MutationObserver(schedulePatch);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        patch();
+      })();
+    </script>
   </body>
 </html>
