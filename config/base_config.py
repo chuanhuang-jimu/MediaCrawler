@@ -120,10 +120,10 @@ FONT_PATH = "./docs/STZHONGS.TTF"
 # Crawl interval 抓取间隔时间
 CRAWLER_MAX_SLEEP_SEC = 5
 
-from .bilibili_config import *
+# from .bilibili_config import *
 from .xhs_config import *
-from .dy_config import *
-from .ks_config import *
-from .weibo_config import *
-from .tieba_config import *
-from .zhihu_config import *
+# from .dy_config import *
+# from .ks_config import *
+# from .weibo_config import *
+# from .tieba_config import *
+# from .zhihu_config import *

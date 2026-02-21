@@ -596,6 +596,7 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
         result = []
         notes_has_more = True
         notes_cursor = ""
+        page = 1
         while notes_has_more and len(result) < config.CRAWLER_MAX_NOTES_COUNT:
             notes_res = await self.get_notes_by_creator(
                 user_id, notes_cursor, xsec_token=xsec_token, xsec_source=xsec_source
@@ -616,7 +617,7 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
 
             notes = notes_res["notes"]
             utils.logger.info(
-                f"[XiaoHongShuClient.get_all_notes_by_creator] got user_id:{user_id} notes len : {len(notes)}"
+                f"[XiaoHongShuClient.get_all_notes_by_creator] got user_id:{user_id} notes len : {len(notes)} at page {page}"
             )
 
             remaining = config.CRAWLER_MAX_NOTES_COUNT - len(result)
@@ -625,9 +626,10 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
 
             notes_to_add = notes[:remaining]
             if callback:
-                await callback(notes_to_add)
+                await callback(notes_to_add, page)
 
             result.extend(notes_to_add)
+            page += 1
             await asyncio.sleep(crawl_interval)
 
         utils.logger.info(

@@ -163,6 +163,15 @@ class XhsDbStoreImplement(AbstractStore):
         result = await session.execute(stmt)
         return result.first() is not None
 
+    async def check_content_exist(self, content_id: str) -> bool:
+        """
+        check xhs note exist by note_id
+        :param content_id: note_id
+        :return:
+        """
+        async with get_session() as session:
+            return await self.content_is_exist(session, content_id)
+
     async def store_comment(self, comment_item: Dict):
         if not comment_item:
             return

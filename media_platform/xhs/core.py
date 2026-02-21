@@ -218,20 +218,41 @@ class XiaoHongShuCrawler(AbstractCrawler):
             note_ids = []
             xsec_tokens = []
             for note_item in all_notes_list:
-                note_ids.append(note_item.get("note_id"))
+                note_id = note_item.get("note_id")
+                # Filter notes again before getting comments to handle notes that were skipped in fetch_creator_notes_detail
+                if await xhs_store.XhsStoreFactory.create_store().check_content_exist(note_id):
+                    continue
+                note_ids.append(note_id)
                 xsec_tokens.append(note_item.get("xsec_token"))
             await self.batch_get_note_comments(note_ids, xsec_tokens)
 
-    async def fetch_creator_notes_detail(self, note_list: List[Dict]):
+    async def fetch_creator_notes_detail(self, note_list: List[Dict], page: int = 1):
         """Concurrently obtain the specified post list and save the data"""
         semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
+        
+        # Filtering already crawled notes for breakpoint resume
+        new_note_list = []
+        skip_count = 0
+        for post_item in note_list:
+            note_id = post_item.get("note_id")
+            if await xhs_store.XhsStoreFactory.create_store().check_content_exist(note_id):
+                # utils.logger.info(f"[XiaoHongShuCrawler.fetch_creator_notes_detail] Note {note_id} already exists, skipping...")
+                skip_count += 1
+                continue
+            new_note_list.append(post_item)
+            
+        utils.logger.info(f"[XiaoHongShuCrawler.fetch_creator_notes_detail] Current page {page}: {len(note_list)} notes, skipped: {skip_count}, new: {len(new_note_list)}")
+
+        if not new_note_list:
+            return
+
         task_list = [
             self.get_note_detail_async_task(
                 note_id=post_item.get("note_id"),
                 xsec_source=post_item.get("xsec_source"),
                 xsec_token=post_item.get("xsec_token"),
                 semaphore=semaphore,
-            ) for post_item in note_list
+            ) for post_item in new_note_list
         ]
 
         note_details = await asyncio.gather(*task_list)

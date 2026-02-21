@@ -99,6 +99,14 @@ class AbstractStore(ABC):
     async def store_creator(self, creator: Dict):
         pass
 
+    async def check_content_exist(self, content_id: str) -> bool:
+        """
+        check content exist
+        :param content_id:
+        :return:
+        """
+        return False
+
 
 class AbstractStoreImage(ABC):
     # TODO: support all platform
