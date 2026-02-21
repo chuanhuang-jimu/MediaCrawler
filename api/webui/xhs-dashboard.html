@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XHS Creator Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/xhs-dashboard.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">XIAOHONGSHU DATA VIEW</p>
+          <h1>Creator / Note / Comment 快速分析台</h1>
+          <p class="subtitle">面向抓取结果的轻量分析界面，支持 creator、note 与评论树查看。</p>
+        </div>
+        <div class="hero-actions">
+          <a class="ghost-link" href="/">返回主控制台</a>
+          <button id="refresh-overview" class="primary-btn" type="button">刷新统计</button>
+        </div>
+      </header>
+
+      <section class="stats-grid">
+        <article class="stat-card">
+          <p>Creator 总数</p>
+          <h2 id="stat-creators">-</h2>
+        </article>
+        <article class="stat-card">
+          <p>Note 总数</p>
+          <h2 id="stat-notes">-</h2>
+        </article>
+        <article class="stat-card">
+          <p>Comment 总数</p>
+          <h2 id="stat-comments">-</h2>
+        </article>
+        <article class="stat-card">
+          <p>有评论的 Note</p>
+          <h2 id="stat-notes-with-comments">-</h2>
+        </article>
+      </section>
+
+      <section class="top-panel">
+        <div class="panel-title-row">
+          <h3>Top Creator（按 note 数）</h3>
+        </div>
+        <div id="top-creators" class="top-list empty">暂无数据</div>
+      </section>
+
+      <section class="grid-two">
+        <article class="panel">
+          <div class="panel-title-row">
+            <h3>Creator 列表</h3>
+          </div>
+          <div class="filters">
+            <input id="creator-keyword" type="text" placeholder="按昵称 / user_id / 标签搜索" />
+            <button id="creator-search-btn" class="secondary-btn" type="button">查询</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Creator</th>
+                  <th>粉丝</th>
+                  <th>关注</th>
+                  <th>互动</th>
+                  <th>标签</th>
+                  <th>更新时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="creator-tbody">
+                <tr>
+                  <td colspan="7" class="empty">加载中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="creator-pagination" class="pagination"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title-row">
+            <h3>Note 列表</h3>
+          </div>
+          <div class="filters">
+            <input id="note-keyword" type="text" placeholder="按标题 / note_id / 关键词搜索" />
+            <input id="note-creator-user-id" type="text" placeholder="按 creator user_id 过滤" />
+            <button id="note-search-btn" class="secondary-btn" type="button">查询</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Note</th>
+                  <th>作者</th>
+                  <th>互动数据</th>
+                  <th>发布时间</th>
+                  <th>评论</th>
+                </tr>
+              </thead>
+              <tbody id="note-tbody">
+                <tr>
+                  <td colspan="5" class="empty">加载中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="note-pagination" class="pagination"></div>
+        </article>
+      </section>
+      <p id="status-line" class="status-line"></p>
+    </main>
+
+    <div id="drawer-mask" class="drawer-mask"></div>
+    <aside id="comment-drawer" class="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">NOTE COMMENTS</p>
+          <h3 id="drawer-title">评论详情</h3>
+        </div>
+        <button id="drawer-close" class="ghost-btn" type="button">关闭</button>
+      </div>
+      <div class="drawer-filters">
+        <input id="comment-keyword" type="text" placeholder="按评论内容过滤（可选）" />
+        <button id="comment-search-btn" class="secondary-btn" type="button">筛选评论</button>
+      </div>
+      <p id="comment-meta" class="drawer-meta"></p>
+      <div id="comment-list" class="comment-list">
+        <p class="empty">请选择 note 查看评论</p>
+      </div>
+    </aside>
+
+    <script type="module" src="/static/xhs-dashboard.js"></script>
+  </body>
+</html>
