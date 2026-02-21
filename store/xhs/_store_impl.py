@@ -105,6 +105,8 @@ class XhsJsonStoreImplement(AbstractStore):
 class XhsDbStoreImplement(AbstractStore):
     _creator_cursor_schema_checked = False
     _creator_cursor_schema_lock = asyncio.Lock()
+    _note_comment_flag_schema_checked = False
+    _note_comment_flag_schema_lock = asyncio.Lock()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -154,11 +156,53 @@ class XhsDbStoreImplement(AbstractStore):
 
             cls._creator_cursor_schema_checked = True
 
+    async def _ensure_note_comment_flag_schema(self, session: AsyncSession):
+        """Ensure note comment flag column exists for comment breakpoint resume."""
+        cls = type(self)
+        if cls._note_comment_flag_schema_checked:
+            return
+
+        async with cls._note_comment_flag_schema_lock:
+            if cls._note_comment_flag_schema_checked:
+                return
+
+            dialect = session.bind.dialect.name if session.bind else ""
+
+            try:
+                if dialect == "sqlite":
+                    result = await session.execute(text("PRAGMA table_info(xhs_note)"))
+                    cols = {row[1] for row in result.fetchall()}
+                    if "comment_crawler_flag" not in cols:
+                        await session.execute(
+                            text("ALTER TABLE xhs_note ADD COLUMN comment_crawler_flag INTEGER DEFAULT 0")
+                        )
+                elif dialect == "postgresql":
+                    await session.execute(
+                        text("ALTER TABLE xhs_note ADD COLUMN IF NOT EXISTS comment_crawler_flag INTEGER DEFAULT 0")
+                    )
+                elif dialect == "mysql":
+                    has_flag = await session.execute(
+                        text("SHOW COLUMNS FROM xhs_note LIKE :column_name"),
+                        {"column_name": "comment_crawler_flag"},
+                    )
+                    if has_flag.first() is None:
+                        await session.execute(
+                            text("ALTER TABLE xhs_note ADD COLUMN comment_crawler_flag INT DEFAULT 0")
+                        )
+            except Exception as ex:
+                utils.logger.warning(
+                    f"[XhsDbStoreImplement] Ensure note comment flag schema failed (dialect={dialect}): {ex}"
+                )
+                return
+
+            cls._note_comment_flag_schema_checked = True
+
     async def store_content(self, content_item: Dict):
         note_id = content_item.get("note_id")
         if not note_id:
             return
         async with get_session() as session:
+            await self._ensure_note_comment_flag_schema(session)
             if await self.content_is_exist(session, note_id):
                 await self.update_content(session, content_item)
             else:
@@ -189,7 +233,8 @@ class XhsDbStoreImplement(AbstractStore):
             tag_list=json.dumps(content_item.get("tag_list"), ensure_ascii=False),
             note_url=content_item.get("note_url"),
             source_keyword=content_item.get("source_keyword", ""),
-            xsec_token=content_item.get("xsec_token", "")
+            xsec_token=content_item.get("xsec_token", ""),
+            comment_crawler_flag=int(content_item.get("comment_crawler_flag", 0) or 0),
         )
         session.add(note)
 
@@ -204,6 +249,8 @@ class XhsDbStoreImplement(AbstractStore):
             "share_count": str(content_item.get("share_count")),
             "last_update_time": content_item.get("last_update_time"),
         }
+        if "comment_crawler_flag" in content_item:
+            update_data["comment_crawler_flag"] = int(content_item.get("comment_crawler_flag", 0) or 0)
         stmt = update(XhsNote).where(XhsNote.note_id == note_id).values(**update_data)
         await session.execute(stmt)
 
@@ -370,6 +417,38 @@ class XhsDbStoreImplement(AbstractStore):
                         crawl_cursor_updated_ts=now_ts,
                     )
                 )
+
+    async def is_note_comment_crawled(self, note_id: str) -> bool:
+        if not note_id:
+            return False
+        async with get_session() as session:
+            await self._ensure_note_comment_flag_schema(session)
+            stmt = (
+                select(XhsNote.comment_crawler_flag)
+                .where(XhsNote.note_id == note_id)
+                .order_by(XhsNote.id.desc())
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            flag = result.scalar_one_or_none()
+            return int(flag or 0) == 1
+
+    async def set_note_comment_crawled(self, note_id: str, crawled: bool) -> None:
+        if not note_id:
+            return
+
+        now_ts = int(get_current_timestamp())
+        async with get_session() as session:
+            await self._ensure_note_comment_flag_schema(session)
+            stmt = (
+                update(XhsNote)
+                .where(XhsNote.note_id == note_id)
+                .values(
+                    last_modify_ts=now_ts,
+                    comment_crawler_flag=1 if crawled else 0,
+                )
+            )
+            await session.execute(stmt)
 
     async def get_all_content(self) -> List[Dict]:
         async with get_session() as session:

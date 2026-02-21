@@ -228,7 +228,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
 
             try:
                 # Get all note information of the creator
-                await self.xhs_client.get_all_notes_by_creator(
+                all_notes_list = await self.xhs_client.get_all_notes_by_creator(
                     user_id=user_id,
                     crawl_interval=crawl_interval,
                     callback=self.fetch_creator_notes_detail,
@@ -243,8 +243,27 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 )
                 continue
 
-            note_ids = list(self._creator_comment_targets.keys())
-            xsec_tokens = [self._creator_comment_targets[note_id] for note_id in note_ids]
+            comment_target_map: Dict[str, str] = {}
+            for note_item in all_notes_list:
+                note_id = note_item.get("note_id")
+                if not note_id:
+                    continue
+                xsec_token = note_item.get("xsec_token") or self._creator_comment_targets.get(note_id, "")
+                if not xsec_token:
+                    continue
+                if await xhs_store.is_note_comment_crawled(note_id):
+                    continue
+                comment_target_map[note_id] = xsec_token
+
+            for note_id, xsec_token in self._creator_comment_targets.items():
+                if note_id in comment_target_map:
+                    continue
+                if await xhs_store.is_note_comment_crawled(note_id):
+                    continue
+                comment_target_map[note_id] = xsec_token
+
+            note_ids = list(comment_target_map.keys())
+            xsec_tokens = [comment_target_map[note_id] for note_id in note_ids]
             await self.batch_get_note_comments(note_ids, xsec_tokens)
             await xhs_store.clear_creator_crawl_cursor(user_id)
 
@@ -376,11 +395,26 @@ class XiaoHongShuCrawler(AbstractCrawler):
         semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
         task_list: List[Task] = []
         for index, note_id in enumerate(note_list):
+            xsec_token = xsec_tokens[index] if index < len(xsec_tokens) else ""
+            if not note_id or not xsec_token:
+                continue
+
+            if await xhs_store.is_note_comment_crawled(note_id):
+                utils.logger.info(
+                    f"[XiaoHongShuCrawler.batch_get_note_comments] Skip note {note_id}, comments already crawled"
+                )
+                continue
+
             task = asyncio.create_task(
-                self.get_comments(note_id=note_id, xsec_token=xsec_tokens[index], semaphore=semaphore),
+                self.get_comments(note_id=note_id, xsec_token=xsec_token, semaphore=semaphore),
                 name=note_id,
             )
             task_list.append(task)
+
+        if not task_list:
+            utils.logger.info("[XiaoHongShuCrawler.batch_get_note_comments] No notes require comment crawling")
+            return
+
         await asyncio.gather(*task_list)
 
     async def get_comments(self, note_id: str, xsec_token: str, semaphore: asyncio.Semaphore):
@@ -389,17 +423,28 @@ class XiaoHongShuCrawler(AbstractCrawler):
             utils.logger.info(f"[XiaoHongShuCrawler.get_comments] Begin get note id comments {note_id}")
             # Use fixed crawling interval
             crawl_interval = config.CRAWLER_MAX_SLEEP_SEC
-            await self.xhs_client.get_note_all_comments(
-                note_id=note_id,
-                xsec_token=xsec_token,
-                crawl_interval=crawl_interval,
-                callback=xhs_store.batch_update_xhs_note_comments,
-                max_count=config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
-            )
+            try:
+                await xhs_store.set_note_comment_crawled(note_id, False)
+                await self.xhs_client.get_note_all_comments(
+                    note_id=note_id,
+                    xsec_token=xsec_token,
+                    crawl_interval=crawl_interval,
+                    callback=xhs_store.batch_update_xhs_note_comments,
+                    max_count=config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
+                )
+                await xhs_store.set_note_comment_crawled(note_id, True)
 
-            # Sleep after fetching comments
-            await asyncio.sleep(crawl_interval)
-            utils.logger.info(f"[XiaoHongShuCrawler.get_comments] Sleeping for {crawl_interval} seconds after fetching comments for note {note_id}")
+                # Sleep after fetching comments
+                await asyncio.sleep(crawl_interval)
+                utils.logger.info(
+                    f"[XiaoHongShuCrawler.get_comments] Sleeping for {crawl_interval} seconds after fetching comments for note {note_id}"
+                )
+            except Exception as ex:
+                await xhs_store.set_note_comment_crawled(note_id, False)
+                utils.logger.error(
+                    f"[XiaoHongShuCrawler.get_comments] Get comments failed for note {note_id}, mark comment_crawler_flag=0, error: {ex}"
+                )
+                raise
 
     async def create_xhs_client(self, httpx_proxy: Optional[str]) -> XiaoHongShuClient:
         """Create Xiaohongshu client"""

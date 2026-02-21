@@ -309,6 +309,7 @@ class XhsNote(Base):
     note_url = Column(Text)
     source_keyword = Column(Text, default='')
     xsec_token = Column(Text)
+    comment_crawler_flag = Column(Integer, default=0)
 
 class XhsNoteComment(Base):
     __tablename__ = 'xhs_note_comment'

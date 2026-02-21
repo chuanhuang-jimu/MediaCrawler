@@ -69,6 +69,22 @@ async def clear_creator_crawl_cursor(user_id: str) -> None:
     await set_creator_crawl_cursor(user_id, "")
 
 
+async def is_note_comment_crawled(note_id: str) -> bool:
+    store = XhsStoreFactory.create_store()
+    getter = getattr(store, "is_note_comment_crawled", None)
+    if not callable(getter):
+        return False
+    return await getter(note_id)
+
+
+async def set_note_comment_crawled(note_id: str, crawled: bool) -> None:
+    store = XhsStoreFactory.create_store()
+    setter = getattr(store, "set_note_comment_crawled", None)
+    if not callable(setter):
+        return
+    await setter(note_id, crawled)
+
+
 def get_video_url_arr(note_item: Dict) -> List:
     """
     Get video url array
