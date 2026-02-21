@@ -116,6 +116,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 await self.get_specified_notes()
             elif config.CRAWLER_TYPE == "creator":
                 # Get creator's information and their notes and comments
+                # todo 博主主页抓取入口
                 await self.get_creators_and_notes()
             else:
                 pass

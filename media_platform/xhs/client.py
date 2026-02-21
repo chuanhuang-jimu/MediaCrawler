@@ -546,6 +546,7 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
         self,
         creator: str,
         cursor: str,
+        # by-creator 默认page_size，后续断点续传 看下
         page_size: int = 30,
         xsec_token: str = "",
         xsec_source: str = "pc_feed",

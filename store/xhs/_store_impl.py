@@ -137,7 +137,7 @@ class XhsDbStoreImplement(AbstractStore):
             comment_count=str(content_item.get("comment_count")),
             share_count=str(content_item.get("share_count")),
             image_list=json.dumps(content_item.get("image_list")),
-            tag_list=json.dumps(content_item.get("tag_list")),
+            tag_list=json.dumps(content_item.get("tag_list"), ensure_ascii=False),
             note_url=content_item.get("note_url"),
             source_keyword=content_item.get("source_keyword", ""),
             xsec_token=content_item.get("xsec_token", "")
@@ -237,7 +237,7 @@ class XhsDbStoreImplement(AbstractStore):
             follows=str(creator_item.get("follows")),
             fans=str(creator_item.get("fans")),
             interaction=str(creator_item.get("interaction")),
-            tag_list=json.dumps(creator_item.get("tag_list"))
+            tag_list=json.dumps(creator_item.get("tag_list"), ensure_ascii=False)
         )
         session.add(creator)
 
@@ -252,7 +252,7 @@ class XhsDbStoreImplement(AbstractStore):
             "follows": str(creator_item.get("follows")),
             "fans": str(creator_item.get("fans")),
             "interaction": str(creator_item.get("interaction")),
-            "tag_list": json.dumps(creator_item.get("tag_list"))
+            "tag_list": json.dumps(creator_item.get("tag_list"), ensure_ascii=False)
         }
         stmt = update(XhsCreator).where(XhsCreator.user_id == user_id).values(**update_data)
         await session.execute(stmt)
