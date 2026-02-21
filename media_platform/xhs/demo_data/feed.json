@@ -1,0 +1,124 @@
+{
+  "desc": "note详情",
+  "success": true,
+  "msg": "成功",
+  "data": {
+    "cursor_score": "",
+    "items": [
+      {
+        "id": "67ef5a50000000000b01c544",
+        "model_type": "note",
+        "note_card": {
+          "note_id": "67ef5a50000000000b01c544",
+          "title": "我的低波动红利策略",
+          "desc": "我的投资策略其实很简单\n选股策略就是α＋β\nα\n1：央企 国企＋行业龙头＋最少要千亿市值以上公司\n2：每年分红股息起码再4-6之间  且已经连续正常分红超过10年\nβ\n高位下跌  连续跌3-5年后 股价腰斩 且月线明显低位\n2023年初的四大行  2023年末的招商银行 2025年 的白酒\n再股价长期 月线 季线低位后 重仓买入\n不涨吃息复投\n涨了耐心持有 等哪天股息2-3了 抛出\n后面我会慢慢写\n之前都在同花顺写 #股票[话题]# #个人投资者[话题]# #股市[话题]# #行情[话题]# #金融理财[话题]# #我的理财日记[话题]# #小白来理财[话题]# #投资理财[话题]# #投资[话题]# #理财[话题]# #招商银行[话题]#",
+          "user": {
+            "user_id": "5b6150c56b58b741e26b8c7f",
+            "nickname": "还是叫吴富贵吧",
+            "avatar": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31g9vkplp2s6g4a7r1e8cb33vdvgmpr0",
+            "xsec_token": "AB3dyifcFfIJ8gZHdgq6Cs4wM44AJ3MCgnqD-zz0QZjC0="
+          },
+          "time": 1743739472000,
+          "share_info": {
+            "un_share": false
+          },
+          "type": "normal",
+          "interact_info": {
+            "followed": false,
+            "relation": "none",
+            "liked": false,
+            "liked_count": "1.5万",
+            "collected": false,
+            "collected_count": "1.2万",
+            "comment_count": "1142",
+            "share_count": "4337"
+          },
+          "image_list": [
+            {
+              "file_id": "",
+              "height": 2048,
+              "url": "",
+              "info_list": [
+                {
+                  "image_scene": "WB_PRV",
+                  "url": "http://sns-webpic-qc.xhscdn.com/202602211513/cf5bcb9a9e7c367e6883e69a29f01bd2/1040g00831h7fci0r3i5g4a7r1e8cb33vb0640g8!nd_prv_wlteh_webp_3"
+                },
+                {
+                  "image_scene": "WB_DFT",
+                  "url": "http://sns-webpic-qc.xhscdn.com/202602211513/8b3c2319ff0f1577f17fa216df523093/1040g00831h7fci0r3i5g4a7r1e8cb33vb0640g8!nd_dft_wlteh_webp_3"
+                }
+              ],
+              "live_photo": false,
+              "width": 2048,
+              "trace_id": "",
+              "url_pre": "http://sns-webpic-qc.xhscdn.com/202602211513/cf5bcb9a9e7c367e6883e69a29f01bd2/1040g00831h7fci0r3i5g4a7r1e8cb33vb0640g8!nd_prv_wlteh_webp_3",
+              "url_default": "http://sns-webpic-qc.xhscdn.com/202602211513/8b3c2319ff0f1577f17fa216df523093/1040g00831h7fci0r3i5g4a7r1e8cb33vb0640g8!nd_dft_wlteh_webp_3",
+              "stream": {}
+            }
+          ],
+          "tag_list": [
+            {
+              "id": "5be1567874881c000175af46",
+              "name": "股票",
+              "type": "topic"
+            },
+            {
+              "type": "topic",
+              "id": "62504ff30000000001006a89",
+              "name": "个人投资者"
+            },
+            {
+              "id": "5bea600747d0df0001cc4bc9",
+              "name": "股市",
+              "type": "topic"
+            },
+            {
+              "id": "5c891539000000000d01434a",
+              "name": "行情",
+              "type": "topic"
+            },
+            {
+              "type": "topic",
+              "id": "5c6cc6db000000000d00c79a",
+              "name": "金融理财"
+            },
+            {
+              "type": "topic",
+              "id": "5d738039000000000101ff09",
+              "name": "我的理财日记"
+            },
+            {
+              "id": "5be1567fd3898300015d2633",
+              "name": "小白来理财",
+              "type": "topic"
+            },
+            {
+              "id": "5be555afd970510001fa8215",
+              "name": "投资理财",
+              "type": "topic"
+            },
+            {
+              "id": "5be3d93765a68000012604f3",
+              "name": "投资",
+              "type": "topic"
+            },
+            {
+              "name": "理财",
+              "type": "topic",
+              "id": "5f70a874000000000100757c"
+            },
+            {
+              "id": "5bf21cb126435c00010cc2f8",
+              "name": "招商银行",
+              "type": "topic"
+            }
+          ],
+          "at_user_list": [],
+          "last_update_time": 1746695170000
+        }
+      }
+    ],
+    "current_time": 1771658039443
+  },
+  "code": 0
+}

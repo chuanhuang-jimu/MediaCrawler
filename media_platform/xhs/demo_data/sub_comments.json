@@ -1,0 +1,160 @@
+{
+  "desc": "子comment",
+  "code": 0,
+  "success": true,
+  "msg": "成功",
+  "data": {
+    "xsec_token": "ABmf-vvBNqN-kjnQvJkPAecv7NdDqSMy3eK1q-Eb7eYxQ=",
+    "user_id": "651fe5900000000023025d9a",
+    "comments": [
+      {
+        "status": 0,
+        "liked": false,
+        "user_info": {
+          "user_id": "62b2eb08000000001b027bb1",
+          "nickname": "云淡风轻",
+          "image": "https://sns-avatar-qc.xhscdn.com/avatar/2b4cefbb01e0a0824f5c173dde7f98b2.jpg?imageView2/2/w/120/format/jpg",
+          "ai_agent": false,
+          "xsec_token": "ABq27LGEmpdF6htAEp90LBtgQtpWcC2VYOke5a3GYkBwA="
+        },
+        "show_tags": [],
+        "create_time": 1771509511000,
+        "ip_location": "河南",
+        "target_comment": {
+          "id": "6997056d000000000f027b87",
+          "user_info": {
+            "nickname": "天罡",
+            "image": "https://sns-avatar-qc.xhscdn.com/avatar/565a5f7882718c36feb1bd76.jpg?imageView2/2/w/120/format/jpg",
+            "ai_agent": false,
+            "xsec_token": "ABFggVqElNSkjaMuqalrC4Ut1AZOLJGT9KVvJwp6ASmEw=",
+            "user_id": "565a5f7882718c36feb1bd76"
+          }
+        },
+        "id": "69971706000000000f01b564",
+        "note_id": "6996d324000000001b0173dd",
+        "content": "对，继续等，现在还是下降趋势，周20X周30，周20X周60，周30X周60，等趋势反转再说。",
+        "at_users": [],
+        "like_count": "5"
+      },
+      {
+        "id": "6997188a0000000008031bd0",
+        "note_id": "6996d324000000001b0173dd",
+        "status": 0,
+        "at_users": [],
+        "liked": false,
+        "like_count": "1",
+        "target_comment": {
+          "id": "6997056d000000000f027b87",
+          "user_info": {
+            "nickname": "天罡",
+            "image": "https://sns-avatar-qc.xhscdn.com/avatar/565a5f7882718c36feb1bd76.jpg?imageView2/2/w/120/format/jpg",
+            "ai_agent": false,
+            "xsec_token": "ABFggVqElNSkjaMuqalrC4Ut1AZOLJGT9KVvJwp6ASmEw=",
+            "user_id": "565a5f7882718c36feb1bd76"
+          }
+        },
+        "content": "等，昨天刚说了60周以下休息，60周以上信仰，看昨天帖子的评论区，贵哥有留言",
+        "user_info": {
+          "ai_agent": false,
+          "xsec_token": "AB83Uah2oo4XeZs5CYl_G9iu_0Tv5pWxOelDxk0n-gFMw=",
+          "user_id": "669139f3000000000b031dbe",
+          "nickname": "在变富了别催",
+          "image": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31i637jsbnc605pkh77piu7du3lee5p0?imageView2/2/w/120/format/jpg"
+        },
+        "show_tags": [],
+        "create_time": 1771509898000,
+        "ip_location": "湖北"
+      },
+      {
+        "status": 0,
+        "at_users": [],
+        "liked": false,
+        "like_count": "0",
+        "target_comment": {
+          "id": "6997188a0000000008031bd0",
+          "user_info": {
+            "user_id": "669139f3000000000b031dbe",
+            "nickname": "在变富了别催",
+            "image": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31i637jsbnc605pkh77piu7du3lee5p0?imageView2/2/w/120/format/jpg",
+            "ai_agent": false,
+            "xsec_token": "AB83Uah2oo4XeZs5CYl_G9iu_0Tv5pWxOelDxk0n-gFMw="
+          }
+        },
+        "id": "6997200c0000000006031a99",
+        "note_id": "6996d324000000001b0173dd",
+        "content": "谢谢[飞吻R]",
+        "user_info": {
+          "nickname": "面包会有de",
+          "image": "https://sns-avatar-qc.xhscdn.com/avatar/be4e54a984a21be925a215a08fb36c8b.jpg?imageView2/2/w/120/format/jpg",
+          "ai_agent": false,
+          "xsec_token": "ABG-SfonTprQzC7RpSLc68TtSZ9Kpt1p3lK4O69o2S3bM=",
+          "user_id": "577e64416a6a690f27ea6252"
+        },
+        "show_tags": [],
+        "create_time": 1771511821000,
+        "ip_location": "湖北"
+      },
+      {
+        "at_users": [],
+        "liked": false,
+        "user_info": {
+          "user_id": "6187c43800000000210242b6",
+          "nickname": "向往",
+          "image": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31pn9mimrk0005oc7ogs8cglmdnelvh0?imageView2/2/w/120/format/jpg",
+          "ai_agent": false,
+          "xsec_token": "ABenwcqi5BtnXkcTVFQA5qiyf0sKX5zcZ9A55yJjTnhyM="
+        },
+        "show_tags": [],
+        "create_time": 1771512132000,
+        "ip_location": "江西",
+        "note_id": "6996d324000000001b0173dd",
+        "status": 0,
+        "target_comment": {
+          "id": "6997188a0000000008031bd0",
+          "user_info": {
+            "xsec_token": "AB83Uah2oo4XeZs5CYl_G9iu_0Tv5pWxOelDxk0n-gFMw=",
+            "user_id": "669139f3000000000b031dbe",
+            "nickname": "在变富了别催",
+            "image": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31i637jsbnc605pkh77piu7du3lee5p0?imageView2/2/w/120/format/jpg",
+            "ai_agent": false
+          }
+        },
+        "like_count": "2",
+        "id": "69972144000000000600ce36",
+        "content": "拿短江来说，现在月下吸是不是性价比很高，还是在250周以上那是不是大趋势没破。"
+      },
+      {
+        "note_id": "6996d324000000001b0173dd",
+        "at_users": [],
+        "content": "大周期250周（60月）趋势没破，小周期趋势在走月小坑，结合前面的说的大周期趋势还在时，遇到250日以下休息250日以上信仰。之前说过突破250日格局进去不经历月小坑心态会好很多，还有就是月下吸需要有资源，没资源就等龙回头，250日应该是月小坑的龙回头观察点",
+        "liked": false,
+        "like_count": "4",
+        "user_info": {
+          "user_id": "669139f3000000000b031dbe",
+          "nickname": "在变富了别催",
+          "image": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31i637jsbnc605pkh77piu7du3lee5p0?imageView2/2/w/120/format/jpg",
+          "ai_agent": false,
+          "xsec_token": "AB83Uah2oo4XeZs5CYl_G9iu_0Tv5pWxOelDxk0n-gFMw="
+        },
+        "show_tags": [],
+        "create_time": 1771514412000,
+        "id": "69972a2c000000000c015c7c",
+        "status": 0,
+        "ip_location": "湖北",
+        "target_comment": {
+          "id": "69972144000000000600ce36",
+          "user_info": {
+            "user_id": "6187c43800000000210242b6",
+            "nickname": "向往",
+            "image": "https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31pn9mimrk0005oc7ogs8cglmdnelvh0?imageView2/2/w/120/format/jpg",
+            "ai_agent": false,
+            "xsec_token": "ABenwcqi5BtnXkcTVFQA5qiyf0sKX5zcZ9A55yJjTnhyM="
+          }
+        }
+      }
+    ],
+    "cursor": "69972a2c000000000c015c7c",
+    "has_more": true,
+    "time": 1771658911694
+  }
+}
