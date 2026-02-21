@@ -114,6 +114,14 @@ class AbstractStore(ABC):
         """
         return {"user_id": "", "ip_location": ""}
 
+    async def get_uncommented_notes_by_creator(self, user_id: str) -> List[Dict[str, str]]:
+        """
+        Get notes that have not had their comments crawled for a specific creator.
+        :param user_id: creator user_id
+        :return: list of {"note_id": "xxx", "xsec_token": "xxx"}
+        """
+        return []
+
 
 class AbstractStoreImage(ABC):
     # TODO: support all platform

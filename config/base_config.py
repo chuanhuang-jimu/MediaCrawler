@@ -83,7 +83,7 @@ USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 START_PAGE = 1
 
 # Control the number of crawled videos/posts
-CRAWLER_MAX_NOTES_COUNT = 5
+CRAWLER_MAX_NOTES_COUNT = 1000
 
 # Controlling the number of concurrent crawlers
 MAX_CONCURRENCY_NUM = 1
@@ -95,11 +95,15 @@ ENABLE_GET_MEIDAS = False
 ENABLE_GET_COMMENTS = True
 
 # Control the number of crawled first-level comments (single video/post)
-CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 10
+CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 100
 
 # Whether to enable the mode of crawling second-level comments. By default, crawling of second-level comments is not enabled.
 # If the old version of the project uses db, you need to refer to schema/tables.sql line 287 to add table fields.
 ENABLE_GET_SUB_COMMENTS = False
+
+# Whether to store only author-related comments.
+# Author-related means: comment author is note author, or the comment is liked by author.
+ENABLE_GET_AUTHOR_RELATED_COMMENTS = True
 
 # word cloud related
 # Whether to enable generating comment word clouds
@@ -118,7 +122,7 @@ STOP_WORDS_FILE = "./docs/hit_stopwords.txt"
 FONT_PATH = "./docs/STZHONGS.TTF"
 
 # Crawl interval 抓取间隔时间
-CRAWLER_MAX_SLEEP_SEC = 5
+CRAWLER_MAX_SLEEP_SEC = 3
 
 # from .bilibili_config import *
 from .xhs_config import *

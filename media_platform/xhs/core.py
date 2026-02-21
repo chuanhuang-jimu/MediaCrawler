@@ -228,7 +228,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
 
             try:
                 # Get all note information of the creator
-                all_notes_list = await self.xhs_client.get_all_notes_by_creator(
+                await self.xhs_client.get_all_notes_by_creator(
                     user_id=user_id,
                     crawl_interval=crawl_interval,
                     callback=self.fetch_creator_notes_detail,
@@ -239,32 +239,17 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 )
             except Exception as ex:
                 utils.logger.error(
-                    f"[XiaoHongShuCrawler.get_creators_and_notes] Crawl interrupted for user_id={user_id}, checkpoint retained for resume. Error: {ex}"
+                    f"[XiaoHongShuCrawler.get_creators_and_notes] Note gathering interrupted for user_id={user_id}, proceeding to crawl comments for already gathered notes. Error: {ex}"
                 )
-                continue
 
-            comment_target_map: Dict[str, str] = {}
-            for note_item in all_notes_list:
-                note_id = note_item.get("note_id")
-                if not note_id:
-                    continue
-                xsec_token = note_item.get("xsec_token") or self._creator_comment_targets.get(note_id, "")
-                if not xsec_token:
-                    continue
-                if await xhs_store.is_note_comment_crawled(note_id):
-                    continue
-                comment_target_map[note_id] = xsec_token
-
-            for note_id, xsec_token in self._creator_comment_targets.items():
-                if note_id in comment_target_map:
-                    continue
-                if await xhs_store.is_note_comment_crawled(note_id):
-                    continue
-                comment_target_map[note_id] = xsec_token
-
-            note_ids = list(comment_target_map.keys())
-            xsec_tokens = [comment_target_map[note_id] for note_id in note_ids]
-            await self.batch_get_note_comments(note_ids, xsec_tokens)
+            # After gathering (even if interrupted), fetch all notes from DB that need comments
+            pending_comment_notes = await xhs_store.get_uncommented_notes_by_creator(user_id)
+            if pending_comment_notes:
+                utils.logger.info(f"[XiaoHongShuCrawler.get_creators_and_notes] Found {len(pending_comment_notes)} notes pending comment crawling in DB for user_id={user_id}")
+                note_ids = [n["note_id"] for n in pending_comment_notes]
+                xsec_tokens = [n["xsec_token"] for n in pending_comment_notes]
+                await self.batch_get_note_comments(note_ids, xsec_tokens)
+            
             await xhs_store.clear_creator_crawl_cursor(user_id)
 
     async def fetch_creator_notes_detail(self, note_list: List[Dict], page: int = 1):

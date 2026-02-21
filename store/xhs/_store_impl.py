@@ -284,6 +284,19 @@ class XhsDbStoreImplement(AbstractStore):
                 return {"user_id": str(row[0] or ""), "ip_location": str(row[1] or "")}
             return {"user_id": "", "ip_location": ""}
 
+    async def get_uncommented_notes_by_creator(self, user_id: str) -> List[Dict[str, str]]:
+        """
+        Get notes that have not had their comments crawled for a specific creator.
+        """
+        async with get_session() as session:
+            stmt = (
+                select(XhsNote.note_id, XhsNote.xsec_token)
+                .where(XhsNote.user_id == user_id)
+                .where(XhsNote.comment_crawler_flag == 0)
+            )
+            result = await session.execute(stmt)
+            return [{"note_id": row[0], "xsec_token": row[1]} for row in result.all()]
+
     async def store_comment(self, comment_item: Dict):
         if not comment_item:
             return

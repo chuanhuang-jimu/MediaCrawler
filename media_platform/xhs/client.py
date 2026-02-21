@@ -462,8 +462,11 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
         
         # Criteria:
         # 1. Author's own comment
-        # 2. Likes > 100 AND IP matches author's IP
-        is_high_engagement_local = like_count > 100 and ip_location == note_author_ip_location and bool(note_author_ip_location)
+        # 2. Likes > 100 AND (IP matches author's IP OR IP is "上海")
+        is_high_engagement_local = like_count > 100 and (
+            (ip_location == note_author_ip_location and bool(note_author_ip_location)) or 
+            ip_location == "上海"
+        )
         
         return is_author or is_high_engagement_local
 

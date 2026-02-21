@@ -93,6 +93,14 @@ async def get_note_author_info(note_id: str) -> Dict[str, str]:
     return await getter(note_id)
 
 
+async def get_uncommented_notes_by_creator(user_id: str) -> List[Dict[str, str]]:
+    store = XhsStoreFactory.create_store()
+    getter = getattr(store, "get_uncommented_notes_by_creator", None)
+    if not callable(getter):
+        return []
+    return await getter(user_id)
+
+
 def get_video_url_arr(note_item: Dict) -> List:
     """
     Get video url array
