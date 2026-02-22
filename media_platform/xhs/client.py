@@ -454,7 +454,15 @@ class XiaoHongShuClient(AbstractApiClient, ProxyRefreshMixin):
     def _is_author_related_comment(comment: Dict, note_author_ip_location: str = "") -> bool:
         # Check if it's the author's own comment using show_tags
         show_tags = comment.get("show_tags") or []
-        is_author = any(tag.get("tag") == "is_author" for tag in show_tags)
+        is_author = False
+        if isinstance(show_tags, list):
+            for tag in show_tags:
+                if isinstance(tag, dict) and tag.get("tag") == "is_author":
+                    is_author = True
+                    break
+                elif isinstance(tag, str) and tag == "is_author":
+                    is_author = True
+                    break
         
         # Check engagement and IP consistency
         like_count = int(comment.get("like_count") or 0)

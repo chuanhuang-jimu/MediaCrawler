@@ -369,6 +369,9 @@ class XiaoHongShuCrawler(AbstractCrawler):
             except KeyError as ex:
                 utils.logger.error(f"[XiaoHongShuCrawler.get_note_detail_async_task] have not fund note detail note_id:{note_id}, err: {ex}")
                 return None
+            except Exception as ex:
+                utils.logger.error(f"[XiaoHongShuCrawler.get_note_detail_async_task] Unexpected error fetching note {note_id}: {ex}")
+                return None
 
     async def batch_get_note_comments(self, note_list: List[str], xsec_tokens: List[str]):
         """Batch get note comments"""
@@ -434,7 +437,6 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 utils.logger.error(
                     f"[XiaoHongShuCrawler.get_comments] Get comments failed for note {note_id}, mark comment_crawler_flag=0, error: {ex}"
                 )
-                raise
 
     async def create_xhs_client(self, httpx_proxy: Optional[str]) -> XiaoHongShuClient:
         """Create Xiaohongshu client"""
